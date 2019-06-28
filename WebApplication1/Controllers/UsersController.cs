@@ -69,14 +69,15 @@ namespace Lab2.Controllers
                 return NotFound();
             }
 
-            //var currentUser = _userService.GetCurrentUser(HttpContext);
-            //
-            //if (currentUser.UserRole == UserRole.UserManager && userToBeUpdated.UserRole == UserRole.Admin)
-            // {
-            //    return Unauthorized();
-            // }
+            var currentUser = _userService.GetCurrentUser(HttpContext);
+            
+            var result = _userService.UpdateUserNoRoleChange(id, user, currentUser);
 
-            var result = _userService.UpdateUserNoRoleChange(id, user);
+            if (result == null)
+            {
+                return Unauthorized();
+            }
+
             return Ok(result);
         }
 
@@ -84,29 +85,14 @@ namespace Lab2.Controllers
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            //var currentUser = _userService.GetCurrentUser(HttpContext);
-
+            var currentUser = _userService.GetCurrentUser(HttpContext);
             var userToDelete = _userService.GetUserById(id);
 
-            //if (currentUser.UserRole == UserRole.UserManager)
-            //{
-                if (userToDelete.UserRole == UserRole.Admin)
-                {
-                    return Unauthorized();
-                }
+            var result = _userService.DeleteUser(id, currentUser);
 
-                //int monthsDiff = DateTimeUtils.GetMonthDifference(currentUser.DateAdded, DateTime.Now);
-                //
-                //if (userToDelete.UserRole == UserRole.UserManager && monthsDiff < 6)
-                //{
-                //    return Unauthorized();
-                //}
-                //}
-
-            var result = _userService.DeleteUser(id);
             if (result == null)
             {
-                return NotFound();
+                return Unauthorized();
             }
 
             return Ok(result);

@@ -25,8 +25,8 @@ namespace Lab2.Services
 
         //Lab 5
         User GetUserById(int id);
-        User UpdateUserNoRoleChange(int id, User user); //, User currentUser);
-        User DeleteUser(int id); //, User currentUser);
+        User UpdateUserNoRoleChange(int id, User user, User currentUser);
+        User DeleteUser(int id, User currentUser);
     }
 
     public class UsersService : IUsersService
@@ -72,7 +72,7 @@ namespace Lab2.Services
                 Username = user.Username,
                 Token = tokenHandler.WriteToken(token),
                 UserRole = user.UserRole
-                
+
             };
 
             return result;
@@ -102,7 +102,7 @@ namespace Lab2.Services
             var errors = registerValidator.Validate(registerInfo, context);
             if (errors != null)
             {
-                return errors; 
+                return errors;
             }
 
             context.Users.Add(new User
@@ -113,7 +113,7 @@ namespace Lab2.Services
                 Username = registerInfo.Username,
                 UserRole = UserRole.Regular,
                 DateAdded = DateTime.Now
-               
+
             });
 
             context.SaveChanges();
@@ -150,59 +150,74 @@ namespace Lab2.Services
 
         //currentUser = userul logat
         //user        = userul existent, cu valori noi
-        public User UpdateUserNoRoleChange(int id, User user) //, User currentUser)
-        {
-            
-            User userToBeUpdated = GetUserById(id);
-
-            user.Id = id;
-            user.UserRole = userToBeUpdated.UserRole; //UserRole Update not permitted
-            var userPassRecieved = ComputeSha256Hash(user.Password);
-
-            if ((user.Password == "") || (userPassRecieved == userToBeUpdated.Password))
-            {
-                user.Password = userToBeUpdated.Password;
-            }  else
-            {
-                user.Password = userPassRecieved;
-            }
-
-            user.DateAdded = DateTime.Now;
-
-            context.Users.Update(user);
-            context.SaveChanges();
-            
-            //don't return the password
-            user.Password = null;
-            return user;
-
-
-
-        //int monthsDiff = DateTimeUtils.GetMonthDifference(currentUser.DateAdded, DateTime.Now);
+        //Following logic implemented for Lab 5 - Live:
+        // UserManager can't append Admins  ,
+        //             can   append Regular ,
+        //             can   append UserManager if he is older than 6 Monts
         //
-        //if (currentUser.UserRole == UserRole.UserManager && monthsDiff < 6)
-        //{
-        //    user.UserRole = userToBeUpdated.UserRole;
-        //}
+        public User UpdateUserNoRoleChange(int id, User user, User currentUser)
+        {
 
-        user.Password = ComputeSha256Hash(userToBeUpdated.Password);
-            user.DateAdded = DateTime.Now;
-            context.Users.Update(user);
-            context.SaveChanges();
-            return user;
+            User userToBeUpdated = GetUserById(id);
+            int howLongUserManager = DateTimeUtils.GetMonthDifference(currentUser.DateAdded, DateTime.Now);
 
+            if (userToBeUpdated.UserRole == UserRole.Admin)
+            {
+                return null;
+            }
+            else if ((userToBeUpdated.UserRole == UserRole.UserManager) && (howLongUserManager < 6))
+            {
+                return null;
+            }
+            else
+            {
+                user.Id = id;
+                user.UserRole = userToBeUpdated.UserRole; //UserRole Update not permitted
+                var userPassRecieved = ComputeSha256Hash(user.Password);
+
+                if ((user.Password == "") || (userPassRecieved == userToBeUpdated.Password))
+                {
+                    user.Password = userToBeUpdated.Password;
+                }
+                else
+                {
+                    user.Password = userPassRecieved;
+                }
+
+                user.DateAdded = DateTime.Now;
+
+                context.Users.Update(user);
+                context.SaveChanges();
+
+                //don't return the password
+                user.Password = null;
+                return user;
+
+            }
         }
 
-        public User DeleteUser(int id)
+
+        public User DeleteUser(int id, User currentUser)
         {
+            int howLongUserManager = DateTimeUtils.GetMonthDifference(currentUser.DateAdded, DateTime.Now);
             var existing = context.Users.FirstOrDefault(user => user.Id == id);
             if (existing == null)
             {
                 return null;
             }
-
-            context.Users.Remove(existing);
-            context.SaveChanges();
+            else if (existing.UserRole == UserRole.Admin)
+            {
+                return null;
+            }
+            else if ((existing.UserRole == UserRole.UserManager) && (howLongUserManager < 6))
+            {
+                return null;
+            }
+            else
+            {
+                context.Users.Remove(existing);
+                context.SaveChanges();
+            }
 
             return existing;
         }
